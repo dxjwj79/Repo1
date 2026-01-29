@@ -417,6 +417,12 @@
             font-size: 14px;
             cursor: move;
             transition: all 0.2s;
+            position: relative;
+        }
+
+        .scheduled-task.drag-over-reorder {
+            border-top: 3px solid #667eea;
+            margin-top: 6px;
         }
 
         .scheduled-task:hover {
@@ -954,6 +960,7 @@
                     taskEl.addEventListener('dragstart', handleDragStart);
                     taskEl.addEventListener('dragend', handleDragEnd);
                     taskEl.addEventListener('dragover', handleTaskDragOver);
+                    taskEl.addEventListener('dragleave', handleTaskDragLeave);
                     taskEl.addEventListener('drop', handleTaskDrop);
                     addTouchListeners(taskEl);
                 });
@@ -1153,9 +1160,14 @@
             const draggedTask = tasks.find(t => t.id === draggedTaskId);
             const targetTask = tasks.find(t => t.id === taskId);
             
-            if (draggedTask && targetTask && !draggedTask.scheduledDate && !targetTask.scheduledDate) {
+            if (draggedTask && targetTask && !draggedTask.scheduledDate && !targetTask.scheduledDate && draggedTaskId !== taskId) {
+                // Remove previous indicators
+                document.querySelectorAll('.scheduled-task').forEach(t => {
+                    t.classList.remove('drag-over-reorder');
+                });
+                
                 dragOverTaskId = taskId;
-                this.style.borderTop = '3px solid #667eea';
+                this.classList.add('drag-over-reorder');
             }
             
             e.dataTransfer.dropEffect = 'move';
@@ -1171,7 +1183,9 @@
             }
             
             // Remove visual feedback
-            this.style.borderTop = '';
+            document.querySelectorAll('.scheduled-task').forEach(t => {
+                t.classList.remove('drag-over-reorder');
+            });
             
             if (draggedTaskId === dragOverTaskId || !dragOverTaskId) return false;
             
@@ -1199,6 +1213,13 @@
             
             dragOverTaskId = null;
             return false;
+        }
+
+        function handleTaskDragLeave(e) {
+            const taskId = parseInt(this.getAttribute('data-task-id'));
+            if (dragOverTaskId === taskId) {
+                this.classList.remove('drag-over-reorder');
+            }
         }
 
         function updateStats() {
@@ -1243,9 +1264,12 @@
             const touch = e.touches[0];
             const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
             
-            // Remove drag-over from all time slots and unscheduled section
+            // Remove drag-over from all time slots, unscheduled section, and reorder indicators
             document.querySelectorAll('.time-slot').forEach(slot => {
                 slot.classList.remove('drag-over');
+            });
+            document.querySelectorAll('.scheduled-task').forEach(task => {
+                task.classList.remove('drag-over-reorder');
             });
             const unscheduledSection = document.querySelector('.unscheduled-section');
             if (unscheduledSection) {
@@ -1255,9 +1279,22 @@
             // Add drag-over to current element
             if (elementBelow) {
                 const timeSlot = elementBelow.closest('.time-slot');
-                if (timeSlot) {
+                const targetTask = elementBelow.closest('.scheduled-task');
+                
+                if (timeSlot && !targetTask) {
+                    // Dragging over a time slot
                     timeSlot.classList.add('drag-over');
+                } else if (targetTask && targetTask !== touchedElement) {
+                    // Dragging over another task - check if both are unscheduled for reordering
+                    const targetId = parseInt(targetTask.getAttribute('data-task-id'));
+                    const draggedTask = tasks.find(t => t.id === draggedTaskId);
+                    const targetTaskObj = tasks.find(t => t.id === targetId);
+                    
+                    if (draggedTask && targetTaskObj && !draggedTask.scheduledDate && !targetTaskObj.scheduledDate) {
+                        targetTask.classList.add('drag-over-reorder');
+                    }
                 } else if (elementBelow.closest('.unscheduled-section')) {
+                    // Dragging over unscheduled section
                     if (unscheduledSection) {
                         unscheduledSection.classList.add('drag-over');
                     }
@@ -1332,7 +1369,7 @@
                 slot.classList.remove('drag-over');
             });
             document.querySelectorAll('.scheduled-task').forEach(task => {
-                task.style.borderTop = '';
+                task.classList.remove('drag-over-reorder');
             });
             const unscheduledSection = document.querySelector('.unscheduled-section');
             if (unscheduledSection) {
