@@ -945,10 +945,11 @@
             if (unscheduledTasks.length === 0) {
                 unscheduledContainer.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 20px;">All tasks are scheduled!</div>';
             } else {
-                unscheduledContainer.innerHTML = unscheduledTasks.map(task => `
+                unscheduledContainer.innerHTML = unscheduledTasks.map((task, index) => `
                     <div class="scheduled-task ${task.completed ? 'completed' : ''} priority-${task.priority}" 
                          draggable="true" 
                          data-task-id="${task.id}"
+                         data-task-index="${index}"
                          data-is-unscheduled="true">
                         <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
                         ${task.description ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${escapeHtml(task.description.substring(0, 30))}${task.description.length > 30 ? '...' : ''}</div>` : ''}
@@ -959,9 +960,9 @@
                 document.querySelectorAll('[data-is-unscheduled="true"]').forEach(taskEl => {
                     taskEl.addEventListener('dragstart', handleDragStart);
                     taskEl.addEventListener('dragend', handleDragEnd);
-                    taskEl.addEventListener('dragover', handleTaskDragOver);
-                    taskEl.addEventListener('dragleave', handleTaskDragLeave);
-                    taskEl.addEventListener('drop', handleTaskDrop);
+                    taskEl.addEventListener('dragover', handleUnscheduledTaskDragOver);
+                    taskEl.addEventListener('dragleave', handleUnscheduledTaskDragLeave);
+                    taskEl.addEventListener('drop', handleUnscheduledTaskDrop);
                     addTouchListeners(taskEl);
                 });
             }
@@ -1148,33 +1149,34 @@
         // Handle reordering tasks within unscheduled list
         let dragOverTaskId = null;
 
-        function handleTaskDragOver(e) {
+        function handleUnscheduledTaskDragOver(e) {
             if (e.preventDefault) {
                 e.preventDefault();
             }
             e.stopPropagation();
             
-            const taskId = parseInt(this.getAttribute('data-task-id'));
+            const targetId = parseInt(this.getAttribute('data-task-id'));
             
-            // Only allow reordering if both tasks are unscheduled
-            const draggedTask = tasks.find(t => t.id === draggedTaskId);
-            const targetTask = tasks.find(t => t.id === taskId);
+            // Don't highlight if dragging over self
+            if (targetId === draggedTaskId) return false;
             
-            if (draggedTask && targetTask && !draggedTask.scheduledDate && !targetTask.scheduledDate && draggedTaskId !== taskId) {
-                // Remove previous indicators
-                document.querySelectorAll('.scheduled-task').forEach(t => {
-                    t.classList.remove('drag-over-reorder');
-                });
-                
-                dragOverTaskId = taskId;
-                this.classList.add('drag-over-reorder');
-            }
+            // Remove previous indicators
+            document.querySelectorAll('.scheduled-task').forEach(t => {
+                t.classList.remove('drag-over-reorder');
+            });
+            
+            dragOverTaskId = targetId;
+            this.classList.add('drag-over-reorder');
             
             e.dataTransfer.dropEffect = 'move';
             return false;
         }
 
-        function handleTaskDrop(e) {
+        function handleUnscheduledTaskDragLeave(e) {
+            this.classList.remove('drag-over-reorder');
+        }
+
+        function handleUnscheduledTaskDrop(e) {
             if (e.stopPropagation) {
                 e.stopPropagation();
             }
@@ -1187,39 +1189,51 @@
                 t.classList.remove('drag-over-reorder');
             });
             
-            if (draggedTaskId === dragOverTaskId || !dragOverTaskId) return false;
+            if (!dragOverTaskId || draggedTaskId === dragOverTaskId) return false;
             
-            // Only reorder if both are unscheduled
-            const draggedTask = tasks.find(t => t.id === draggedTaskId);
-            const targetTask = tasks.find(t => t.id === dragOverTaskId);
+            // Reorder the tasks
+            const draggedIndex = tasks.findIndex(t => t.id === draggedTaskId);
+            const targetIndex = tasks.findIndex(t => t.id === dragOverTaskId);
             
-            if (draggedTask && targetTask && !draggedTask.scheduledDate && !targetTask.scheduledDate) {
-                const draggedIndex = tasks.findIndex(t => t.id === draggedTaskId);
-                const targetIndex = tasks.findIndex(t => t.id === dragOverTaskId);
+            if (draggedIndex !== -1 && targetIndex !== -1) {
+                // Remove dragged task
+                const [movedTask] = tasks.splice(draggedIndex, 1);
                 
-                if (draggedIndex !== -1 && targetIndex !== -1) {
-                    // Remove dragged task from its position
-                    const [movedTask] = tasks.splice(draggedIndex, 1);
-                    
-                    // Find new position of target (it may have shifted)
-                    const newTargetIndex = tasks.findIndex(t => t.id === dragOverTaskId);
-                    
-                    // Insert before the target
-                    tasks.splice(newTargetIndex, 0, movedTask);
-                    
-                    saveTasks();
-                }
+                // Find new target index (may have shifted)
+                const newTargetIndex = tasks.findIndex(t => t.id === dragOverTaskId);
+                
+                // Insert before target
+                tasks.splice(newTargetIndex, 0, movedTask);
+                
+                saveTasks();
             }
             
             dragOverTaskId = null;
             return false;
         }
 
-        function handleTaskDragLeave(e) {
-            const taskId = parseInt(this.getAttribute('data-task-id'));
-            if (dragOverTaskId === taskId) {
-                this.classList.remove('drag-over-reorder');
+        // Old handlers for compatibility with scheduled tasks
+        function handleTaskDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
             }
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleTaskDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            return false;
+        }
+
+        function handleTaskDragLeave(e) {
+            // Do nothing
         }
 
         function updateStats() {
@@ -1365,11 +1379,11 @@
                     const targetTask = elementBelow.closest('.scheduled-task');
                     if (targetTask && targetTask !== touchedElement) {
                         const targetId = parseInt(targetTask.getAttribute('data-task-id'));
+                        const isTargetUnscheduled = targetTask.hasAttribute('data-is-unscheduled');
                         const draggedTask = tasks.find(t => t.id === draggedTaskId);
-                        const targetTaskObj = tasks.find(t => t.id === targetId);
                         
-                        // Only allow reordering if both are unscheduled
-                        if (draggedTask && targetTaskObj && !draggedTask.scheduledDate && !targetTaskObj.scheduledDate) {
+                        // If both are unscheduled, reorder
+                        if (isTargetUnscheduled && draggedTask && !draggedTask.scheduledDate) {
                             const draggedIndex = tasks.findIndex(t => t.id === draggedTaskId);
                             const targetIndex = tasks.findIndex(t => t.id === targetId);
                             
