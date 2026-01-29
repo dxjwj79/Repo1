@@ -1191,19 +1191,26 @@
             
             if (!dragOverTaskId || draggedTaskId === dragOverTaskId) return false;
             
-            // Reorder the tasks
-            const draggedIndex = tasks.findIndex(t => t.id === draggedTaskId);
-            const targetIndex = tasks.findIndex(t => t.id === dragOverTaskId);
+            // Get all unscheduled tasks
+            const unscheduledTasks = tasks.filter(t => !t.scheduledDate);
             
-            if (draggedIndex !== -1 && targetIndex !== -1) {
-                // Remove dragged task
-                const [movedTask] = tasks.splice(draggedIndex, 1);
+            // Find positions in the unscheduled list
+            const draggedTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === draggedTaskId);
+            const targetTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === dragOverTaskId);
+            
+            if (draggedTaskInUnscheduled !== -1 && targetTaskInUnscheduled !== -1) {
+                // Remove the dragged task from unscheduled array
+                const [movedTask] = unscheduledTasks.splice(draggedTaskInUnscheduled, 1);
                 
-                // Find new target index (may have shifted)
-                const newTargetIndex = tasks.findIndex(t => t.id === dragOverTaskId);
+                // Find new target position (may have shifted)
+                const newTargetIndex = unscheduledTasks.findIndex(t => t.id === dragOverTaskId);
                 
                 // Insert before target
-                tasks.splice(newTargetIndex, 0, movedTask);
+                unscheduledTasks.splice(newTargetIndex, 0, movedTask);
+                
+                // Now rebuild the full tasks array: scheduled tasks + reordered unscheduled tasks
+                const scheduledTasks = tasks.filter(t => t.scheduledDate);
+                tasks = [...unscheduledTasks, ...scheduledTasks];
                 
                 saveTasks();
             }
@@ -1384,13 +1391,27 @@
                         
                         // If both are unscheduled, reorder
                         if (isTargetUnscheduled && draggedTask && !draggedTask.scheduledDate) {
-                            const draggedIndex = tasks.findIndex(t => t.id === draggedTaskId);
-                            const targetIndex = tasks.findIndex(t => t.id === targetId);
+                            // Get all unscheduled tasks
+                            const unscheduledTasks = tasks.filter(t => !t.scheduledDate);
                             
-                            if (draggedIndex !== -1 && targetIndex !== -1) {
-                                const [movedTask] = tasks.splice(draggedIndex, 1);
-                                const newTargetIndex = tasks.findIndex(t => t.id === targetId);
-                                tasks.splice(newTargetIndex, 0, movedTask);
+                            // Find positions in the unscheduled list
+                            const draggedTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === draggedTaskId);
+                            const targetTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === targetId);
+                            
+                            if (draggedTaskInUnscheduled !== -1 && targetTaskInUnscheduled !== -1) {
+                                // Remove the dragged task from unscheduled array
+                                const [movedTask] = unscheduledTasks.splice(draggedTaskInUnscheduled, 1);
+                                
+                                // Find new target position
+                                const newTargetIndex = unscheduledTasks.findIndex(t => t.id === targetId);
+                                
+                                // Insert before target
+                                unscheduledTasks.splice(newTargetIndex, 0, movedTask);
+                                
+                                // Rebuild the full tasks array
+                                const scheduledTasks = tasks.filter(t => t.scheduledDate);
+                                tasks = [...unscheduledTasks, ...scheduledTasks];
+                                
                                 saveTasks();
                             }
                         }
