@@ -1229,6 +1229,43 @@
             document.getElementById('scheduledTasks').textContent = tasks.filter(t => t.scheduledDate).length;
         }
 
+        // Move incomplete tasks from past days back to unscheduled
+        function cleanupPastTasks() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayStr = today.toISOString().split('T')[0];
+            
+            let changed = false;
+            tasks.forEach(task => {
+                // If task is scheduled for a past date and not completed, unschedule it
+                if (task.scheduledDate && !task.completed && task.scheduledDate < todayStr) {
+                    task.scheduledDate = null;
+                    task.scheduledTime = null;
+                    changed = true;
+                }
+            });
+            
+            if (changed) {
+                saveTasks();
+            }
+        }
+
+        // Check for past tasks on load and periodically
+        function setupTaskCleanup() {
+            // Clean up on load
+            cleanupPastTasks();
+            
+            // Check every hour if we've crossed midnight
+            let lastCheckDate = new Date().toDateString();
+            setInterval(() => {
+                const currentDate = new Date().toDateString();
+                if (currentDate !== lastCheckDate) {
+                    lastCheckDate = currentDate;
+                    cleanupPastTasks();
+                }
+            }, 60000); // Check every minute
+        }
+
         // Touch support for mobile drag and drop
         let touchedElement = null;
         let touchStartY = 0;
@@ -1382,6 +1419,9 @@
 
         // Initialize - Load tasks from localStorage
         loadTasks();
+        
+        // Setup automatic cleanup of past tasks
+        setupTaskCleanup();
 
         // Close modal when clicking outside
         document.getElementById('editModal').addEventListener('click', function(e) {
