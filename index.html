@@ -181,6 +181,49 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
         }
 
+        .tasks-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .tasks-column {
+            min-height: 200px;
+        }
+
+        .column-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .column-header.default {
+            color: #667eea;
+        }
+
+        .column-header.urgent {
+            color: #ef4444;
+        }
+
+        .tasks-list {
+            min-height: 150px;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .tasks-list.drag-over {
+            background: #f0f0f0;
+        }
+
+        @media (max-width: 768px) {
+            .tasks-columns {
+                grid-template-columns: 1fr;
+            }
+        }
+
         .task {
             background: #f8f9fa;
             border-radius: 12px;
@@ -699,7 +742,16 @@
             </div>
 
             <div class="tasks-section">
-                <div id="tasksList"></div>
+                <div class="tasks-columns">
+                    <div class="tasks-column">
+                        <div class="column-header default">📋 Tasks</div>
+                        <div class="tasks-list" id="tasksList"></div>
+                    </div>
+                    <div class="tasks-column">
+                        <div class="column-header urgent">🔥 Urgent</div>
+                        <div class="tasks-list" id="urgentTasksList"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -936,6 +988,7 @@
 
         function renderTasks() {
             const tasksList = document.getElementById('tasksList');
+            const urgentTasksList = document.getElementById('urgentTasksList');
             
             let filteredTasks = tasks;
             if (currentFilter === 'active') {
@@ -944,41 +997,84 @@
                 filteredTasks = tasks.filter(t => t.completed);
             }
 
-            if (filteredTasks.length === 0) {
-                tasksList.innerHTML = `
-                    <div class="empty-state">
-                        <div>No tasks here!</div>
-                    </div>
-                `;
-                return;
-            }
+            // Separate urgent (high priority) from normal tasks
+            const urgentTasks = filteredTasks.filter(t => t.priority === 'high');
+            const normalTasks = filteredTasks.filter(t => t.priority !== 'high');
 
-            tasksList.innerHTML = filteredTasks.map(task => `
-                <div class="task ${task.completed ? 'completed' : ''} priority-${task.priority}" draggable="true" data-task-id="${task.id}">
-                    <div class="task-header">
-                        <input type="checkbox" class="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
-                        <div class="task-content">
-                            <div class="task-title">${escapeHtml(task.title)}</div>
-                            ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
-                            <div class="task-meta">
-                                <span class="tag category">${task.category}</span>
-                                <span class="tag priority priority-${task.priority}">${task.priority.toUpperCase()}</span>
-                                ${task.scheduledDate ? `<span class="tag time">${formatDate(task.scheduledDate)} ${task.scheduledTime || ''}</span>` : ''}
-                            </div>
-                            <div class="task-buttons">
-                                <button class="edit-btn" onclick="openEditModal(${task.id})">Edit</button>
-                                <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+            // Render normal tasks
+            if (normalTasks.length === 0) {
+                tasksList.innerHTML = `<div class="empty-state" style="padding: 20px;"><div style="color: #9ca3af; font-size: 14px;">No tasks</div></div>`;
+            } else {
+                tasksList.innerHTML = normalTasks.map(task => `
+                    <div class="task ${task.completed ? 'completed' : ''} priority-${task.priority}" draggable="true" data-task-id="${task.id}" data-is-list-task="true">
+                        <div class="task-header">
+                            <input type="checkbox" class="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+                            <div class="task-content">
+                                <div class="task-title">${escapeHtml(task.title)}</div>
+                                ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
+                                <div class="task-meta">
+                                    <span class="tag category">${task.category}</span>
+                                    <span class="tag priority priority-${task.priority}">${task.priority.toUpperCase()}</span>
+                                    ${task.scheduledDate ? `<span class="tag time">${formatDate(task.scheduledDate)} ${task.scheduledTime || ''}</span>` : ''}
+                                </div>
+                                <div class="task-buttons">
+                                    <button class="edit-btn" onclick="openEditModal(${task.id})">Edit</button>
+                                    <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
 
-            document.querySelectorAll('.task').forEach(taskEl => {
+            // Render urgent tasks
+            if (urgentTasks.length === 0) {
+                urgentTasksList.innerHTML = `<div class="empty-state" style="padding: 20px;"><div style="color: #9ca3af; font-size: 14px;">No urgent tasks</div></div>`;
+            } else {
+                urgentTasksList.innerHTML = urgentTasks.map(task => `
+                    <div class="task ${task.completed ? 'completed' : ''} priority-${task.priority}" draggable="true" data-task-id="${task.id}" data-is-list-task="true">
+                        <div class="task-header">
+                            <input type="checkbox" class="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+                            <div class="task-content">
+                                <div class="task-title">${escapeHtml(task.title)}</div>
+                                ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
+                                <div class="task-meta">
+                                    <span class="tag category">${task.category}</span>
+                                    <span class="tag priority priority-${task.priority}">${task.priority.toUpperCase()}</span>
+                                    ${task.scheduledDate ? `<span class="tag time">${formatDate(task.scheduledDate)} ${task.scheduledTime || ''}</span>` : ''}
+                                </div>
+                                <div class="task-buttons">
+                                    <button class="edit-btn" onclick="openEditModal(${task.id})">Edit</button>
+                                    <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Add drag handlers to all tasks
+            document.querySelectorAll('[data-is-list-task="true"]').forEach(taskEl => {
                 taskEl.addEventListener('dragstart', handleDragStart);
                 taskEl.addEventListener('dragend', handleDragEnd);
                 addTouchListeners(taskEl);
             });
+
+            // Make both columns drop zones (re-query the elements after innerHTML update)
+            const tasksListEl = document.getElementById('tasksList');
+            const urgentTasksListEl = document.getElementById('urgentTasksList');
+            
+            if (tasksListEl) {
+                tasksListEl.addEventListener('dragover', handleColumnDragOver);
+                tasksListEl.addEventListener('drop', (e) => handleColumnDrop(e, 'normal'));
+                tasksListEl.addEventListener('dragleave', handleColumnDragLeave);
+            }
+
+            if (urgentTasksListEl) {
+                urgentTasksListEl.addEventListener('dragover', handleColumnDragOver);
+                urgentTasksListEl.addEventListener('drop', (e) => handleColumnDrop(e, 'urgent'));
+                urgentTasksListEl.addEventListener('dragleave', handleColumnDragLeave);
+            }
         }
 
         function escapeHtml(text) {
@@ -1255,6 +1351,47 @@
                 
                 saveTasks();
             }
+        }
+
+        // Handle drag and drop between list columns
+        function handleColumnDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.stopPropagation();
+            e.currentTarget.classList.add('drag-over');
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleColumnDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleColumnDrop(e, columnType) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+
+            e.currentTarget.classList.remove('drag-over');
+
+            const task = tasks.find(t => t.id === draggedTaskId);
+            if (task) {
+                if (columnType === 'urgent') {
+                    task.priority = 'high';
+                } else if (columnType === 'normal') {
+                    // Change from high to medium if moving out of urgent
+                    if (task.priority === 'high') {
+                        task.priority = 'medium';
+                    }
+                }
+                saveTasks();
+            }
+
+            return false;
         }
 
         // Handle reordering tasks within unscheduled list
