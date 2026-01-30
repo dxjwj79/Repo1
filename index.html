@@ -717,17 +717,45 @@
 
         @media (max-width: 768px) {
             .calendar-grid {
-                grid-template-columns: 60px repeat(7, 1fr);
-                font-size: 12px;
+                grid-template-columns: 45px repeat(3, 1fr);
+                font-size: 11px;
+                gap: 0;
+                border: none;
             }
 
             .time-label {
-                font-size: 10px;
-                padding: 4px;
+                font-size: 8px;
+                padding: 4px 1px;
+                writing-mode: horizontal-tb;
+                border-right: 1px solid #e5e7eb;
+            }
+
+            .all-day-label {
+                font-size: 9px;
+                padding: 8px 1px;
+                writing-mode: horizontal-tb;
+                border-right: 1px solid #e5e7eb;
             }
 
             .day-header {
-                padding: 8px 4px;
+                padding: 8px 2px;
+                font-size: 11px;
+                line-height: 1.2;
+                border: 1px solid #e5e7eb;
+            }
+
+            .all-day-section {
+                min-height: 100px;
+                padding: 6px;
+                border: 1px solid #e5e7eb;
+            }
+
+            .time-slot {
+                min-height: 50px;
+                padding: 2px;
+                border: 1px solid #e5e7eb;
+            }
+        }
                 font-size: 11px;
             }
 
