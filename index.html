@@ -439,12 +439,31 @@
 
         .calendar-grid {
             display: grid;
-            grid-template-columns: 80px repeat(7, 1fr);
+            grid-template-columns: 80px repeat(3, 1fr);
             gap: 1px;
             background: #e5e7eb;
             border: 1px solid #e5e7eb;
             border-radius: 8px;
             overflow: hidden;
+        }
+
+        .all-day-section {
+            background: #f3f4f6;
+            min-height: 120px;
+            padding: 12px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .all-day-label {
+            background: #f9fafb;
+            padding: 12px 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            border-right: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .time-label {
@@ -462,7 +481,7 @@
         .day-header {
             background: #667eea;
             color: white;
-            padding: 12px 8px;
+            padding: 16px 8px;
             font-size: 14px;
             font-weight: 600;
             text-align: center;
@@ -499,6 +518,41 @@
 
         .scheduled-task.alternate {
             background: #e8eaf0;
+        }
+
+        /* Color coding based on list column */
+        .scheduled-task.column-tasks {
+            border-left-color: #667eea;
+            background: #eef2ff;
+        }
+
+        .scheduled-task.column-tonight {
+            border-left-color: #f59e0b;
+            background: #fff7ed;
+        }
+
+        .scheduled-task.column-tomorrow {
+            border-left-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .scheduled-task.column-urgent {
+            border-left-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .scheduled-task.column-projects {
+            border-left-color: #8b5cf6;
+            background: #f5f3ff;
+        }
+
+        .task-date-dropdown {
+            margin-top: 8px;
+            padding: 6px;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            font-size: 12px;
+            width: 100%;
         }
 
         .scheduled-task.drag-over-reorder {
@@ -1120,19 +1174,28 @@
         }
 
         function renderCalendar() {
-            const weekEnd = new Date(currentWeekStart);
-            weekEnd.setDate(weekEnd.getDate() + 6);
+            // Show 3 days starting from current week start
+            const dayCount = 3;
+            const endDate = new Date(currentWeekStart);
+            endDate.setDate(endDate.getDate() + dayCount - 1);
+            
             document.getElementById('currentWeek').textContent = 
-                `${currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+                `${currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
             const unscheduledTasks = tasks.filter(t => !t.scheduledDate);
             const unscheduledContainer = document.getElementById('unscheduledTasks');
+            
+            // Helper function to get column class
+            const getColumnClass = (task) => {
+                if (!task.listColumn || task.listColumn === 'tasks') return 'column-tasks';
+                return `column-${task.listColumn}`;
+            };
             
             if (unscheduledTasks.length === 0) {
                 unscheduledContainer.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 20px;">All tasks are scheduled!</div>';
             } else {
                 unscheduledContainer.innerHTML = unscheduledTasks.map((task, index) => `
-                    <div class="scheduled-task ${index % 2 === 1 ? 'alternate' : ''} ${task.completed ? 'completed' : ''} priority-${task.priority}" 
+                    <div class="scheduled-task ${index % 2 === 1 ? 'alternate' : ''} ${getColumnClass(task)} ${task.completed ? 'completed' : ''}" 
                          draggable="true" 
                          data-task-id="${task.id}"
                          data-task-index="${index}"
@@ -1140,10 +1203,14 @@
                          style="padding: 16px;">
                         <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
                         ${task.description ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${escapeHtml(task.description.substring(0, 30))}${task.description.length > 30 ? '...' : ''}</div>` : ''}
+                        <select class="task-date-dropdown" onchange="setTaskDate(${task.id}, this.value)" onclick="event.stopPropagation()">
+                            <option value="">Set date...</option>
+                            ${getDatesForDropdown().map(d => `<option value="${d.value}">${d.label}</option>`).join('')}
+                        </select>
                     </div>
                 `).join('');
                 
-                // Add drag handlers to unscheduled tasks for reordering
+                // Add drag handlers to unscheduled tasks
                 document.querySelectorAll('[data-is-unscheduled="true"]').forEach(taskEl => {
                     taskEl.addEventListener('dragstart', handleDragStart);
                     taskEl.addEventListener('dragend', handleDragEnd);
@@ -1155,25 +1222,54 @@
             }
 
             const calendarGrid = document.getElementById('calendarGrid');
-            let gridHTML = '<div class="time-label"></div>';
+            let gridHTML = '';
 
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            for (let i = 0; i < 7; i++) {
+            // Day headers
+            gridHTML += '<div class="day-header" style="grid-column: 1;"></div>';
+            for (let i = 0; i < dayCount; i++) {
                 const date = new Date(currentWeekStart);
                 date.setDate(date.getDate() + i);
                 const isToday = date.getTime() === today.getTime();
                 gridHTML += `<div class="day-header ${isToday ? 'today' : ''}">
-                    ${date.toLocaleDateString('en-US', { weekday: 'short' })}<br>
-                    ${date.getDate()}
+                    ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                 </div>`;
             }
 
-            timeSlots.forEach((timeSlot, slotIndex) => {
+            // All-day sections
+            gridHTML += '<div class="all-day-label">All Day</div>';
+            for (let i = 0; i < dayCount; i++) {
+                const date = new Date(currentWeekStart);
+                date.setDate(date.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                // Find tasks scheduled for this day but no specific time
+                const allDayTasks = tasks.filter(t => 
+                    t.scheduledDate === dateStr && !t.scheduledTime
+                );
+                
+                gridHTML += `<div class="all-day-section" data-date="${dateStr}" data-all-day="true">`;
+                allDayTasks.forEach(task => {
+                    gridHTML += `
+                        <div class="scheduled-task ${getColumnClass(task)} ${task.completed ? 'completed' : ''}" 
+                             draggable="true" 
+                             data-task-id="${task.id}"
+                             onclick="toggleTask(${task.id})"
+                             style="margin-bottom: 8px; padding: 10px;">
+                            <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
+                        </div>
+                    `;
+                });
+                gridHTML += '</div>';
+            }
+
+            // Time slots
+            timeSlots.forEach((timeSlot) => {
                 gridHTML += `<div class="time-label">${timeSlot}</div>`;
                 
-                for (let i = 0; i < 7; i++) {
+                for (let i = 0; i < dayCount; i++) {
                     const date = new Date(currentWeekStart);
                     date.setDate(date.getDate() + i);
                     const dateStr = date.toISOString().split('T')[0];
@@ -1193,7 +1289,7 @@
                         const duration = task.duration || 45;
                         const heightPixels = (duration / 60) * 60; // 60px per hour
                         gridHTML += `
-                            <div class="scheduled-task ${task.completed ? 'completed' : ''} priority-${task.priority}" 
+                            <div class="scheduled-task ${getColumnClass(task)} ${task.completed ? 'completed' : ''}" 
                                  draggable="true" 
                                  data-task-id="${task.id}"
                                  onclick="toggleTask(${task.id})"
@@ -1210,14 +1306,61 @@
 
             calendarGrid.innerHTML = gridHTML;
 
+            // Add event listeners to all scheduled tasks
             document.querySelectorAll('.scheduled-task').forEach(taskEl => {
                 taskEl.addEventListener('dragstart', handleDragStart);
                 taskEl.addEventListener('dragend', handleDragEnd);
                 addTouchListeners(taskEl);
                 
-                // Add drop support for reordering in unscheduled list
                 taskEl.addEventListener('dragover', handleTaskDragOver);
                 taskEl.addEventListener('drop', handleTaskDrop);
+            });
+
+            // Make all-day sections drop zones
+            document.querySelectorAll('[data-all-day="true"]').forEach(section => {
+                section.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    section.style.background = '#e5e7eb';
+                });
+                section.addEventListener('dragleave', (e) => {
+                    section.style.background = '';
+                });
+                section.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    section.style.background = '';
+                    const date = section.getAttribute('data-date');
+                    const task = tasks.find(t => t.id === draggedTaskId);
+                    if (task) {
+                        task.scheduledDate = date;
+                        task.scheduledTime = null; // No specific time
+                        saveTasks();
+                    }
+                });
+            });
+
+            // Make time slots drop zones
+            document.querySelectorAll('.time-slot').forEach(slot => {
+                slot.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    slot.classList.add('drag-over');
+                });
+                slot.addEventListener('dragleave', () => {
+                    slot.classList.remove('drag-over');
+                });
+                slot.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    slot.classList.remove('drag-over');
+                    const date = slot.getAttribute('data-date');
+                    const time = slot.getAttribute('data-time');
+                    const task = tasks.find(t => t.id === draggedTaskId);
+                    if (task) {
+                        task.scheduledDate = date;
+                        task.scheduledTime = time;
+                        saveTasks();
+                    }
+                });
+            });
+        }
             });
 
             // Make unscheduled section a drop zone
@@ -1336,6 +1479,39 @@
             }
             
             return false;
+        }
+
+        // Generate dates for dropdown
+        function getDatesForDropdown() {
+            const dates = [];
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            for (let i = 0; i < 14; i++) {
+                const date = new Date(today);
+                date.setDate(date.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+                let label = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                
+                if (i === 0) label = 'Today';
+                else if (i === 1) label = 'Tomorrow';
+                
+                dates.push({ value: dateStr, label });
+            }
+            
+            return dates;
+        }
+
+        // Set task date from dropdown
+        function setTaskDate(taskId, dateStr) {
+            if (!dateStr) return;
+            
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                task.scheduledDate = dateStr;
+                task.scheduledTime = null; // Set to all-day by default
+                saveTasks();
+            }
         }
 
         // Move task up/down in unscheduled list
