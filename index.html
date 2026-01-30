@@ -183,8 +183,8 @@
 
         .tasks-columns {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
         }
 
         .tasks-column {
@@ -203,8 +203,20 @@
             color: #667eea;
         }
 
+        .column-header.tonight {
+            color: #f59e0b;
+        }
+
+        .column-header.tomorrow {
+            color: #3b82f6;
+        }
+
         .column-header.urgent {
             color: #ef4444;
+        }
+
+        .column-header.projects {
+            color: #8b5cf6;
         }
 
         .tasks-list {
@@ -216,6 +228,12 @@
 
         .tasks-list.drag-over {
             background: #f0f0f0;
+        }
+
+        @media (max-width: 1024px) {
+            .tasks-columns {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
 
         @media (max-width: 768px) {
@@ -748,8 +766,20 @@
                         <div class="tasks-list" id="tasksList"></div>
                     </div>
                     <div class="tasks-column">
+                        <div class="column-header tonight">🌙 By Tonight</div>
+                        <div class="tasks-list" id="tonightTasksList"></div>
+                    </div>
+                    <div class="tasks-column">
+                        <div class="column-header tomorrow">☀️ Tomorrow</div>
+                        <div class="tasks-list" id="tomorrowTasksList"></div>
+                    </div>
+                    <div class="tasks-column">
                         <div class="column-header urgent">🔥 Urgent</div>
                         <div class="tasks-list" id="urgentTasksList"></div>
+                    </div>
+                    <div class="tasks-column">
+                        <div class="column-header projects">📁 Projects</div>
+                        <div class="tasks-list" id="projectsTasksList"></div>
                     </div>
                 </div>
             </div>
@@ -988,7 +1018,10 @@
 
         function renderTasks() {
             const tasksList = document.getElementById('tasksList');
+            const tonightTasksList = document.getElementById('tonightTasksList');
+            const tomorrowTasksList = document.getElementById('tomorrowTasksList');
             const urgentTasksList = document.getElementById('urgentTasksList');
+            const projectsTasksList = document.getElementById('projectsTasksList');
             
             let filteredTasks = tasks;
             if (currentFilter === 'active') {
@@ -997,61 +1030,55 @@
                 filteredTasks = tasks.filter(t => t.completed);
             }
 
-            // Separate urgent (high priority) from normal tasks
-            const urgentTasks = filteredTasks.filter(t => t.priority === 'high');
-            const normalTasks = filteredTasks.filter(t => t.priority !== 'high');
+            // Separate tasks by column
+            const normalTasks = filteredTasks.filter(t => !t.listColumn || t.listColumn === 'tasks');
+            const tonightTasks = filteredTasks.filter(t => t.listColumn === 'tonight');
+            const tomorrowTasks = filteredTasks.filter(t => t.listColumn === 'tomorrow');
+            const urgentTasks = filteredTasks.filter(t => t.listColumn === 'urgent');
+            const projectsTasks = filteredTasks.filter(t => t.listColumn === 'projects');
 
-            // Render normal tasks
-            if (normalTasks.length === 0) {
-                tasksList.innerHTML = `<div class="empty-state" style="padding: 20px;"><div style="color: #9ca3af; font-size: 14px;">No tasks</div></div>`;
-            } else {
-                tasksList.innerHTML = normalTasks.map(task => `
-                    <div class="task ${task.completed ? 'completed' : ''} priority-${task.priority}" draggable="true" data-task-id="${task.id}" data-is-list-task="true">
-                        <div class="task-header">
-                            <input type="checkbox" class="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
-                            <div class="task-content">
-                                <div class="task-title">${escapeHtml(task.title)}</div>
-                                ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
-                                <div class="task-meta">
-                                    <span class="tag category">${task.category}</span>
-                                    <span class="tag priority priority-${task.priority}">${task.priority.toUpperCase()}</span>
-                                    ${task.scheduledDate ? `<span class="tag time">${formatDate(task.scheduledDate)} ${task.scheduledTime || ''}</span>` : ''}
-                                </div>
-                                <div class="task-buttons">
-                                    <button class="edit-btn" onclick="openEditModal(${task.id})">Edit</button>
-                                    <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
-                                </div>
+            // Helper function to render tasks
+            const renderTaskHTML = (task) => `
+                <div class="task ${task.completed ? 'completed' : ''} priority-${task.priority}" draggable="true" data-task-id="${task.id}" data-is-list-task="true">
+                    <div class="task-header">
+                        <input type="checkbox" class="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
+                        <div class="task-content">
+                            <div class="task-title">${escapeHtml(task.title)}</div>
+                            ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
+                            <div class="task-meta">
+                                <span class="tag category">${task.category}</span>
+                                <span class="tag priority priority-${task.priority}">${task.priority.toUpperCase()}</span>
+                                ${task.scheduledDate ? `<span class="tag time">${formatDate(task.scheduledDate)} ${task.scheduledTime || ''}</span>` : ''}
+                            </div>
+                            <div class="task-buttons">
+                                <button class="edit-btn" onclick="openEditModal(${task.id})">Edit</button>
+                                <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
                             </div>
                         </div>
                     </div>
-                `).join('');
-            }
+                </div>
+            `;
 
-            // Render urgent tasks
-            if (urgentTasks.length === 0) {
-                urgentTasksList.innerHTML = `<div class="empty-state" style="padding: 20px;"><div style="color: #9ca3af; font-size: 14px;">No urgent tasks</div></div>`;
-            } else {
-                urgentTasksList.innerHTML = urgentTasks.map(task => `
-                    <div class="task ${task.completed ? 'completed' : ''} priority-${task.priority}" draggable="true" data-task-id="${task.id}" data-is-list-task="true">
-                        <div class="task-header">
-                            <input type="checkbox" class="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
-                            <div class="task-content">
-                                <div class="task-title">${escapeHtml(task.title)}</div>
-                                ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
-                                <div class="task-meta">
-                                    <span class="tag category">${task.category}</span>
-                                    <span class="tag priority priority-${task.priority}">${task.priority.toUpperCase()}</span>
-                                    ${task.scheduledDate ? `<span class="tag time">${formatDate(task.scheduledDate)} ${task.scheduledTime || ''}</span>` : ''}
-                                </div>
-                                <div class="task-buttons">
-                                    <button class="edit-btn" onclick="openEditModal(${task.id})">Edit</button>
-                                    <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            }
+            // Render each column
+            tasksList.innerHTML = normalTasks.length === 0 
+                ? `<div class="empty-state" style="padding: 20px;"><div style="color: #9ca3af; font-size: 14px;">No tasks</div></div>`
+                : normalTasks.map(renderTaskHTML).join('');
+
+            tonightTasksList.innerHTML = tonightTasks.length === 0
+                ? `<div class="empty-state" style="padding: 20px;"><div style="color: #9ca3af; font-size: 14px;">Drag tasks here</div></div>`
+                : tonightTasks.map(renderTaskHTML).join('');
+
+            tomorrowTasksList.innerHTML = tomorrowTasks.length === 0
+                ? `<div class="empty-state" style="padding: 20px;"><div style="color: #9ca3af; font-size: 14px;">Drag tasks here</div></div>`
+                : tomorrowTasks.map(renderTaskHTML).join('');
+
+            urgentTasksList.innerHTML = urgentTasks.length === 0
+                ? `<div class="empty-state" style="padding: 20px;"><div style="color: #9ca3af; font-size: 14px;">Drag tasks here</div></div>`
+                : urgentTasks.map(renderTaskHTML).join('');
+
+            projectsTasksList.innerHTML = projectsTasks.length === 0
+                ? `<div class="empty-state" style="padding: 20px;"><div style="color: #9ca3af; font-size: 14px;">Drag tasks here</div></div>`
+                : projectsTasks.map(renderTaskHTML).join('');
 
             // Add drag handlers to all tasks
             document.querySelectorAll('[data-is-list-task="true"]').forEach(taskEl => {
@@ -1060,21 +1087,20 @@
                 addTouchListeners(taskEl);
             });
 
-            // Make both columns drop zones (re-query the elements after innerHTML update)
-            const tasksListEl = document.getElementById('tasksList');
-            const urgentTasksListEl = document.getElementById('urgentTasksList');
-            
-            if (tasksListEl) {
-                tasksListEl.addEventListener('dragover', handleColumnDragOver);
-                tasksListEl.addEventListener('drop', (e) => handleColumnDrop(e, 'normal'));
-                tasksListEl.addEventListener('dragleave', handleColumnDragLeave);
-            }
-
-            if (urgentTasksListEl) {
-                urgentTasksListEl.addEventListener('dragover', handleColumnDragOver);
-                urgentTasksListEl.addEventListener('drop', (e) => handleColumnDrop(e, 'urgent'));
-                urgentTasksListEl.addEventListener('dragleave', handleColumnDragLeave);
-            }
+            // Make all columns drop zones
+            [
+                { el: tasksList, type: 'tasks' },
+                { el: tonightTasksList, type: 'tonight' },
+                { el: tomorrowTasksList, type: 'tomorrow' },
+                { el: urgentTasksList, type: 'urgent' },
+                { el: projectsTasksList, type: 'projects' }
+            ].forEach(({ el, type }) => {
+                if (el) {
+                    el.addEventListener('dragover', handleColumnDragOver);
+                    el.addEventListener('drop', (e) => handleColumnDrop(e, type));
+                    el.addEventListener('dragleave', handleColumnDragLeave);
+                }
+            });
         }
 
         function escapeHtml(text) {
@@ -1380,14 +1406,13 @@
 
             const task = tasks.find(t => t.id === draggedTaskId);
             if (task) {
+                task.listColumn = columnType;
+                
+                // Also update priority for urgent column
                 if (columnType === 'urgent') {
                     task.priority = 'high';
-                } else if (columnType === 'normal') {
-                    // Change from high to medium if moving out of urgent
-                    if (task.priority === 'high') {
-                        task.priority = 'medium';
-                    }
                 }
+                
                 saveTasks();
             }
 
@@ -1690,19 +1715,27 @@
             }
             
             if (elementBelow) {
-                // First check if dropping on list view columns (Tasks or Urgent)
+                // First check if dropping on list view columns
                 const tasksList = elementBelow.closest('#tasksList');
+                const tonightTasksList = elementBelow.closest('#tonightTasksList');
+                const tomorrowTasksList = elementBelow.closest('#tomorrowTasksList');
                 const urgentTasksList = elementBelow.closest('#urgentTasksList');
+                const projectsTasksList = elementBelow.closest('#projectsTasksList');
                 
-                if (tasksList || urgentTasksList) {
+                if (tasksList || tonightTasksList || tomorrowTasksList || urgentTasksList || projectsTasksList) {
                     const task = tasks.find(t => t.id === draggedTaskId);
                     if (task) {
                         if (urgentTasksList) {
+                            task.listColumn = 'urgent';
                             task.priority = 'high';
+                        } else if (tomorrowTasksList) {
+                            task.listColumn = 'tomorrow';
+                        } else if (tonightTasksList) {
+                            task.listColumn = 'tonight';
+                        } else if (projectsTasksList) {
+                            task.listColumn = 'projects';
                         } else if (tasksList) {
-                            if (task.priority === 'high') {
-                                task.priority = 'medium';
-                            }
+                            task.listColumn = 'tasks';
                         }
                         saveTasks();
                     }
