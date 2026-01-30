@@ -315,6 +315,20 @@
             margin-top: 8px;
         }
 
+        .reorder-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .reorder-btn:active {
+            background: #5568d3;
+            transform: scale(0.95);
+        }
+
         .task-buttons {
             display: flex;
             gap: 8px;
@@ -486,6 +500,7 @@
             font-weight: 600;
             color: #1f2937;
             margin-bottom: 12px;
+            pointer-events: none;
         }
 
         .unscheduled-tasks {
@@ -951,8 +966,16 @@
                          data-task-id="${task.id}"
                          data-task-index="${index}"
                          data-is-unscheduled="true">
-                        <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
-                        ${task.description ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${escapeHtml(task.description.substring(0, 30))}${task.description.length > 30 ? '...' : ''}</div>` : ''}
+                        <div style="display: flex; gap: 8px; align-items: flex-start;">
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                ${index > 0 ? '<button class="reorder-btn" onclick="moveTaskUp(' + task.id + ')" style="width: 32px; height: 32px; padding: 4px; font-size: 16px;">↑</button>' : '<div style="width: 32px; height: 32px;"></div>'}
+                                ${index < unscheduledTasks.length - 1 ? '<button class="reorder-btn" onclick="moveTaskDown(' + task.id + ')" style="width: 32px; height: 32px; padding: 4px; font-size: 16px;">↓</button>' : '<div style="width: 32px; height: 32px;"></div>'}
+                            </div>
+                            <div style="flex: 1;">
+                                <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
+                                ${task.description ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${escapeHtml(task.description.substring(0, 30))}${task.description.length > 30 ? '...' : ''}</div>` : ''}
+                            </div>
+                        </div>
                     </div>
                 `).join('');
                 
@@ -1146,6 +1169,47 @@
             return false;
         }
 
+        // Move task up/down in unscheduled list
+        function moveTaskUp(taskId) {
+            event.stopPropagation();
+            
+            const unscheduledTasks = tasks.filter(t => !t.scheduledDate);
+            const currentIndex = unscheduledTasks.findIndex(t => t.id === taskId);
+            
+            if (currentIndex > 0) {
+                // Swap with task above
+                const temp = unscheduledTasks[currentIndex];
+                unscheduledTasks[currentIndex] = unscheduledTasks[currentIndex - 1];
+                unscheduledTasks[currentIndex - 1] = temp;
+                
+                // Rebuild tasks array
+                const scheduledTasks = tasks.filter(t => t.scheduledDate);
+                tasks = [...unscheduledTasks, ...scheduledTasks];
+                
+                saveTasks();
+            }
+        }
+
+        function moveTaskDown(taskId) {
+            event.stopPropagation();
+            
+            const unscheduledTasks = tasks.filter(t => !t.scheduledDate);
+            const currentIndex = unscheduledTasks.findIndex(t => t.id === taskId);
+            
+            if (currentIndex < unscheduledTasks.length - 1) {
+                // Swap with task below
+                const temp = unscheduledTasks[currentIndex];
+                unscheduledTasks[currentIndex] = unscheduledTasks[currentIndex + 1];
+                unscheduledTasks[currentIndex + 1] = temp;
+                
+                // Rebuild tasks array
+                const scheduledTasks = tasks.filter(t => t.scheduledDate);
+                tasks = [...unscheduledTasks, ...scheduledTasks];
+                
+                saveTasks();
+            }
+        }
+
         // Handle reordering tasks within unscheduled list
         let dragOverTaskId = null;
 
@@ -1190,20 +1254,17 @@
             });
             
             if (!dragOverTaskId || draggedTaskId === dragOverTaskId) {
-                alert('DEBUG: Same task or no target');
                 return false;
             }
             
             // Get all unscheduled tasks
             const unscheduledTasks = tasks.filter(t => !t.scheduledDate);
             
-            alert(`DEBUG: Found ${unscheduledTasks.length} unscheduled tasks. Dragged ID: ${draggedTaskId}, Target ID: ${dragOverTaskId}`);
             
             // Find positions in the unscheduled list
             const draggedTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === draggedTaskId);
             const targetTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === dragOverTaskId);
             
-            alert(`DEBUG: Dragged position: ${draggedTaskInUnscheduled}, Target position: ${targetTaskInUnscheduled}`);
             
             if (draggedTaskInUnscheduled !== -1 && targetTaskInUnscheduled !== -1) {
                 // Remove the dragged task from unscheduled array
@@ -1219,11 +1280,8 @@
                 const scheduledTasks = tasks.filter(t => t.scheduledDate);
                 tasks = [...unscheduledTasks, ...scheduledTasks];
                 
-                alert('DEBUG: About to save tasks');
                 saveTasks();
-                alert('DEBUG: Tasks saved!');
             } else {
-                alert('DEBUG: Could not find tasks in unscheduled list');
             }
             
             dragOverTaskId = null;
@@ -1377,21 +1435,27 @@
                 return;
             }
             
-            alert('DEBUG: Touch end called!');
             
             e.preventDefault();
             
             const touch = e.changedTouches[0];
             let elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
             
-            alert(`DEBUG: Element below: ${elementBelow ? elementBelow.className : 'null'}`);
             
-            // If we hit a child element, find the parent scheduled-task
+            // If we hit a child element or header, find the parent scheduled-task
             if (elementBelow && !elementBelow.classList.contains('scheduled-task')) {
-                const parentTask = elementBelow.closest('.scheduled-task');
-                if (parentTask) {
-                    elementBelow = parentTask;
-                    alert('DEBUG: Found parent scheduled-task');
+                // Skip the header and other non-interactive elements
+                if (elementBelow.classList.contains('unscheduled-header')) {
+                    // Look for the task below the header
+                    const tasks = document.querySelectorAll('[data-is-unscheduled="true"]');
+                    if (tasks.length > 0) {
+                        elementBelow = tasks[0]; // Default to first task if hitting header
+                    }
+                } else {
+                    const parentTask = elementBelow.closest('.scheduled-task');
+                    if (parentTask) {
+                        elementBelow = parentTask;
+                    }
                 }
             }
             
@@ -1402,22 +1466,18 @@
                     const targetId = parseInt(elementBelow.getAttribute('data-task-id'));
                     const draggedTask = tasks.find(t => t.id === draggedTaskId);
                     
-                    alert(`DEBUG: Is task. Target unscheduled: ${isTargetUnscheduled}, Dragged unscheduled: ${draggedTask && !draggedTask.scheduledDate}`);
                     
                     // If both are unscheduled and not the same task, reorder
                     if (isTargetUnscheduled && draggedTask && !draggedTask.scheduledDate && elementBelow !== touchedElement) {
-                            alert(`DEBUG TOUCH: Attempting reorder. Dragged: ${draggedTaskId}, Target: ${targetId}`);
                             
                             // Get all unscheduled tasks
                             const unscheduledTasks = tasks.filter(t => !t.scheduledDate);
                             
-                            alert(`DEBUG TOUCH: Found ${unscheduledTasks.length} unscheduled tasks`);
                             
                             // Find positions in the unscheduled list
                             const draggedTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === draggedTaskId);
                             const targetTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === targetId);
                             
-                            alert(`DEBUG TOUCH: Positions - Dragged: ${draggedTaskInUnscheduled}, Target: ${targetTaskInUnscheduled}`);
                             
                             if (draggedTaskInUnscheduled !== -1 && targetTaskInUnscheduled !== -1) {
                                 // Remove the dragged task from unscheduled array
@@ -1433,11 +1493,8 @@
                                 const scheduledTasks = tasks.filter(t => t.scheduledDate);
                                 tasks = [...unscheduledTasks, ...scheduledTasks];
                                 
-                                alert('DEBUG TOUCH: About to save');
                                 saveTasks();
-                                alert('DEBUG TOUCH: Saved!');
                             } else {
-                                alert('DEBUG TOUCH: Could not find tasks');
                             }
                     }
                 } else {
@@ -1446,7 +1503,6 @@
                     const timeSlot = elementBelow.closest('.time-slot');
                     
                     if (unscheduledSection) {
-                        alert('DEBUG: Dropping on unscheduled section to unschedule');
                         const task = tasks.find(t => t.id === draggedTaskId);
                         if (task && task.scheduledDate) {
                             task.scheduledDate = null;
@@ -1454,7 +1510,6 @@
                             saveTasks();
                         }
                     } else if (timeSlot) {
-                        alert('DEBUG: Dropping on time slot');
                         const date = timeSlot.getAttribute('data-date');
                         const time = timeSlot.getAttribute('data-time');
                         
