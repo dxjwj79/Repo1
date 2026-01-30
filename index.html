@@ -425,8 +425,9 @@
         .scheduled-task {
             background: #f8f9fa;
             border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 4px;
+            padding: 16px;
+            margin-bottom: 8px;
+            min-height: 60px;
             border-left: 3px solid #667eea;
             font-size: 14px;
             cursor: move;
@@ -965,17 +966,10 @@
                          draggable="true" 
                          data-task-id="${task.id}"
                          data-task-index="${index}"
-                         data-is-unscheduled="true">
-                        <div style="display: flex; gap: 8px; align-items: flex-start;">
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                ${index > 0 ? '<button class="reorder-btn" onclick="moveTaskUp(' + task.id + ')" style="width: 32px; height: 32px; padding: 4px; font-size: 16px;">↑</button>' : '<div style="width: 32px; height: 32px;"></div>'}
-                                ${index < unscheduledTasks.length - 1 ? '<button class="reorder-btn" onclick="moveTaskDown(' + task.id + ')" style="width: 32px; height: 32px; padding: 4px; font-size: 16px;">↓</button>' : '<div style="width: 32px; height: 32px;"></div>'}
-                            </div>
-                            <div style="flex: 1;">
-                                <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
-                                ${task.description ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${escapeHtml(task.description.substring(0, 30))}${task.description.length > 30 ? '...' : ''}</div>` : ''}
-                            </div>
-                        </div>
+                         data-is-unscheduled="true"
+                         style="padding: 16px;">
+                        <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
+                        ${task.description ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">${escapeHtml(task.description.substring(0, 30))}${task.description.length > 30 ? '...' : ''}</div>` : ''}
                     </div>
                 `).join('');
                 
