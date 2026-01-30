@@ -416,6 +416,7 @@
             min-height: 60px;
             padding: 4px;
             position: relative;
+            overflow: visible;
         }
 
         .time-slot.drag-over {
@@ -1055,7 +1056,6 @@
                     date.setDate(date.getDate() + i);
                     const dateStr = date.toISOString().split('T')[0];
                     const timeStr = convertTimeSlotTo24Hour(timeSlot);
-                    const slotHour = parseInt(timeStr.split(':')[0]);
                     
                     // Find tasks that START in this slot
                     const slotTasks = tasks.filter(t => 
@@ -1063,18 +1063,6 @@
                         t.scheduledTime && 
                         t.scheduledTime.startsWith(timeStr.substring(0, 2))
                     );
-
-                    // Find tasks that SPAN into this slot from earlier
-                    const spanningTasks = tasks.filter(t => {
-                        if (!t.scheduledDate || !t.scheduledTime || t.scheduledDate !== dateStr) return false;
-                        
-                        const taskHour = parseInt(t.scheduledTime.split(':')[0]);
-                        const taskDuration = t.duration || 45;
-                        const taskEndHour = taskHour + (taskDuration / 60);
-                        
-                        // Check if this task started earlier but extends into this slot
-                        return taskHour < slotHour && taskEndHour > slotHour;
-                    });
 
                     gridHTML += `<div class="time-slot" data-date="${dateStr}" data-time="${timeStr}">`;
                     
@@ -1087,19 +1075,9 @@
                                  draggable="true" 
                                  data-task-id="${task.id}"
                                  onclick="toggleTask(${task.id})"
-                                 style="height: ${heightPixels}px; min-height: ${heightPixels}px; position: relative; z-index: 10;">
+                                 style="height: ${heightPixels}px; position: absolute; left: 4px; right: 4px; top: 4px; z-index: 10;">
                                 <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
                                 <div class="scheduled-task-time">${task.scheduledTime} (${duration}min)</div>
-                            </div>
-                        `;
-                    });
-                    
-                    // Show a placeholder/continuation for spanning tasks
-                    spanningTasks.forEach(task => {
-                        gridHTML += `
-                            <div class="scheduled-task-continuation ${task.completed ? 'completed' : ''} priority-${task.priority}" 
-                                 style="height: 60px; opacity: 0.5; border-top: 2px dashed #999;">
-                                <div style="font-size: 11px; color: #6b7280;">↑ ${escapeHtml(task.title)} (cont.)</div>
                             </div>
                         `;
                     });
