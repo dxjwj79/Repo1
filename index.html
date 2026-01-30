@@ -1690,8 +1690,25 @@
             }
             
             if (elementBelow) {
+                // First check if dropping on list view columns (Tasks or Urgent)
+                const tasksList = elementBelow.closest('#tasksList');
+                const urgentTasksList = elementBelow.closest('#urgentTasksList');
+                
+                if (tasksList || urgentTasksList) {
+                    const task = tasks.find(t => t.id === draggedTaskId);
+                    if (task) {
+                        if (urgentTasksList) {
+                            task.priority = 'high';
+                        } else if (tasksList) {
+                            if (task.priority === 'high') {
+                                task.priority = 'medium';
+                            }
+                        }
+                        saveTasks();
+                    }
+                }
                 // Check if this is a scheduled task (for reordering unscheduled)
-                if (elementBelow.classList.contains('scheduled-task')) {
+                else if (elementBelow.classList.contains('scheduled-task')) {
                     const isTargetUnscheduled = elementBelow.hasAttribute('data-is-unscheduled');
                     const targetId = parseInt(elementBelow.getAttribute('data-task-id'));
                     const draggedTask = tasks.find(t => t.id === draggedTaskId);
