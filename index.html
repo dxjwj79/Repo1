@@ -435,6 +435,10 @@
             position: relative;
         }
 
+        .scheduled-task.alternate {
+            background: #e8eaf0;
+        }
+
         .scheduled-task.drag-over-reorder {
             border-top: 3px solid #667eea;
             margin-top: 6px;
@@ -628,6 +632,12 @@
             </div>
         </div>
 
+        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+            <button onclick="exportTasks()" style="background: #10b981; padding: 10px 16px; font-size: 14px;">📥 Export Backup</button>
+            <button onclick="document.getElementById('importFile').click()" style="background: #3b82f6; padding: 10px 16px; font-size: 14px;">📤 Import Backup</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importTasks(event)">
+        </div>
+
         <div class="add-task-section">
             <div class="input-group">
                 <input type="text" id="taskTitle" placeholder="Task title *" />
@@ -652,6 +662,18 @@
             <div class="row">
                 <input type="date" id="taskDate" />
                 <input type="time" id="taskTime" />
+            </div>
+            <div class="input-group">
+                <select id="taskDuration">
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45" selected>45 minutes</option>
+                    <option value="60">1 hour</option>
+                    <option value="90">1.5 hours</option>
+                    <option value="120">2 hours</option>
+                    <option value="180">3 hours</option>
+                    <option value="240">4 hours</option>
+                </select>
             </div>
             <button onclick="addTask()" style="margin-top: 12px;">Add Task</button>
         </div>
@@ -719,6 +741,18 @@
                 <input type="date" id="editTaskDate" />
                 <input type="time" id="editTaskTime" />
             </div>
+            <div class="input-group">
+                <select id="editTaskDuration">
+                    <option value="15">15 minutes</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">1 hour</option>
+                    <option value="90">1.5 hours</option>
+                    <option value="120">2 hours</option>
+                    <option value="180">3 hours</option>
+                    <option value="240">4 hours</option>
+                </select>
+            </div>
             <button onclick="saveEditedTask()" style="margin-top: 12px;">Save Changes</button>
         </div>
     </div>
@@ -762,6 +796,7 @@
             const priority = document.getElementById('taskPriority').value;
             const date = document.getElementById('taskDate').value;
             const time = document.getElementById('taskTime').value;
+            const duration = parseInt(document.getElementById('taskDuration').value);
 
             if (!title) {
                 alert('Please enter a task title');
@@ -777,6 +812,7 @@
                 completed: false,
                 scheduledDate: date || null,
                 scheduledTime: time || null,
+                duration: duration || 45,
                 createdAt: new Date().toISOString()
             };
 
@@ -818,6 +854,7 @@
             document.getElementById('editTaskPriority').value = task.priority;
             document.getElementById('editTaskDate').value = task.scheduledDate || '';
             document.getElementById('editTaskTime').value = task.scheduledTime || '';
+            document.getElementById('editTaskDuration').value = task.duration || 45;
 
             document.getElementById('editModal').classList.add('active');
         }
@@ -843,6 +880,7 @@
             task.priority = document.getElementById('editTaskPriority').value;
             task.scheduledDate = document.getElementById('editTaskDate').value || null;
             task.scheduledTime = document.getElementById('editTaskTime').value || null;
+            task.duration = parseInt(document.getElementById('editTaskDuration').value) || 45;
 
             saveTasks();
             closeEditModal();
@@ -962,7 +1000,7 @@
                 unscheduledContainer.innerHTML = '<div style="color: #9ca3af; text-align: center; padding: 20px;">All tasks are scheduled!</div>';
             } else {
                 unscheduledContainer.innerHTML = unscheduledTasks.map((task, index) => `
-                    <div class="scheduled-task ${task.completed ? 'completed' : ''} priority-${task.priority}" 
+                    <div class="scheduled-task ${index % 2 === 1 ? 'alternate' : ''} ${task.completed ? 'completed' : ''} priority-${task.priority}" 
                          draggable="true" 
                          data-task-id="${task.id}"
                          data-task-index="${index}"
@@ -1018,13 +1056,16 @@
                     gridHTML += `<div class="time-slot" data-date="${dateStr}" data-time="${timeStr}">`;
                     
                     slotTasks.forEach(task => {
+                        const duration = task.duration || 45;
+                        const heightPercentage = (duration / 60) * 100; // 60 min slot = 100% height
                         gridHTML += `
                             <div class="scheduled-task ${task.completed ? 'completed' : ''} priority-${task.priority}" 
                                  draggable="true" 
                                  data-task-id="${task.id}"
-                                 onclick="toggleTask(${task.id})">
+                                 onclick="toggleTask(${task.id})"
+                                 style="height: ${heightPercentage}%; min-height: ${heightPercentage}%;">
                                 <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
-                                <div class="scheduled-task-time">${task.scheduledTime}</div>
+                                <div class="scheduled-task-time">${task.scheduledTime} (${duration}min)</div>
                             </div>
                         `;
                     });
@@ -1311,6 +1352,52 @@
             document.getElementById('activeTasks').textContent = tasks.filter(t => !t.completed).length;
             document.getElementById('completedTasks').textContent = tasks.filter(t => t.completed).length;
             document.getElementById('scheduledTasks').textContent = tasks.filter(t => t.scheduledDate).length;
+        }
+
+        // Export and Import Functions
+        function exportTasks() {
+            const dataStr = JSON.stringify(tasks, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `tasks-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert('✓ Tasks exported! Save this file somewhere safe.');
+        }
+
+        function importTasks(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedTasks = JSON.parse(e.target.result);
+                    
+                    if (!Array.isArray(importedTasks)) {
+                        alert('Invalid backup file format.');
+                        return;
+                    }
+                    
+                    if (confirm(`Import ${importedTasks.length} tasks? This will replace your current tasks.`)) {
+                        tasks = importedTasks;
+                        saveTasks();
+                        alert('✓ Tasks imported successfully!');
+                    }
+                } catch (error) {
+                    alert('Error reading backup file. Make sure it\'s a valid tasks backup.');
+                    console.error('Import error:', error);
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset file input so same file can be imported again
+            event.target.value = '';
         }
 
         // Move incomplete tasks from past days back to unscheduled
