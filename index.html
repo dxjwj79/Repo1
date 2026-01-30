@@ -439,52 +439,59 @@
 
         .calendar-grid {
             display: grid;
-            grid-template-columns: 80px repeat(3, 1fr);
-            gap: 1px;
+            grid-template-columns: 100px repeat(3, 1fr);
+            gap: 2px;
             background: #e5e7eb;
             border: 1px solid #e5e7eb;
             border-radius: 8px;
             overflow: hidden;
+            font-size: 14px;
         }
 
         .all-day-section {
-            background: #f3f4f6;
-            min-height: 120px;
-            padding: 12px;
-            border-bottom: 2px solid #e5e7eb;
+            background: #f9fafb;
+            min-height: 180px;
+            padding: 16px;
+            border-bottom: 3px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
         .all-day-label {
             background: #f9fafb;
-            padding: 12px 8px;
-            font-size: 12px;
+            padding: 16px 12px;
+            font-size: 14px;
             font-weight: 600;
-            color: #6b7280;
+            color: #4b5563;
             border-right: 2px solid #e5e7eb;
             display: flex;
             align-items: center;
             justify-content: center;
+            writing-mode: horizontal-tb;
         }
 
         .time-label {
             background: #f9fafb;
-            padding: 8px;
-            font-size: 12px;
+            padding: 12px 8px;
+            font-size: 13px;
             font-weight: 600;
             color: #6b7280;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
             border-right: 2px solid #e5e7eb;
+            padding-top: 8px;
         }
 
         .day-header {
             background: #667eea;
             color: white;
-            padding: 16px 8px;
-            font-size: 14px;
+            padding: 20px 12px;
+            font-size: 16px;
             font-weight: 600;
             text-align: center;
+            line-height: 1.4;
         }
 
         .day-header.today {
@@ -493,10 +500,11 @@
 
         .time-slot {
             background: white;
-            min-height: 60px;
-            padding: 4px;
+            min-height: 80px;
+            padding: 8px;
             position: relative;
             overflow: visible;
+        }
         }
 
         .time-slot.drag-over {
@@ -835,9 +843,9 @@
             </div>
 
             <div class="calendar-header">
-                <button class="nav-btn" onclick="changeWeek(-1)">← Previous Week</button>
+                <button class="nav-btn" onclick="changeWeek(-1)">← Previous 3 Days</button>
                 <div class="current-week" id="currentWeek"></div>
-                <button class="nav-btn" onclick="changeWeek(1)">Next Week →</button>
+                <button class="nav-btn" onclick="changeWeek(1)">Next 3 Days →</button>
             </div>
 
             <div class="calendar-grid" id="calendarGrid"></div>
@@ -1129,7 +1137,7 @@
         }
 
         function changeWeek(direction) {
-            currentWeekStart.setDate(currentWeekStart.getDate() + (direction * 7));
+            currentWeekStart.setDate(currentWeekStart.getDate() + (direction * 3));
             renderCalendar();
         }
 
@@ -1182,89 +1190,96 @@
             }
 
             const calendarGrid = document.getElementById('calendarGrid');
-            let gridHTML = '';
-
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            // Day headers
-            gridHTML += '<div class="day-header" style="grid-column: 1;"></div>';
-            for (let i = 0; i < dayCount; i++) {
+            // Build calendar grid content directly
+            let calendarHTML = '';
+            
+            // Empty corner cell
+            calendarHTML += '<div style="background: #667eea;"></div>';
+            
+            // Add exactly 3 day headers
+            for (let i = 0; i < 3; i++) {
                 const date = new Date(currentWeekStart);
                 date.setDate(date.getDate() + i);
                 const isToday = date.getTime() === today.getTime();
-                gridHTML += `<div class="day-header ${isToday ? 'today' : ''}">
-                    ${date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                </div>`;
+                const headerClass = isToday ? 'day-header today' : 'day-header';
+                const dateText = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                calendarHTML += `<div class="${headerClass}">${dateText}</div>`;
             }
-
-            // All-day sections
-            gridHTML += '<div class="all-day-label">All Day</div>';
-            for (let i = 0; i < dayCount; i++) {
+            
+            // All Day label
+            calendarHTML += '<div class="all-day-label">All Day</div>';
+            
+            // Add exactly 3 all-day sections
+            for (let i = 0; i < 3; i++) {
                 const date = new Date(currentWeekStart);
                 date.setDate(date.getDate() + i);
                 const dateStr = date.toISOString().split('T')[0];
                 
-                // Find tasks scheduled for this day but no specific time
                 const allDayTasks = tasks.filter(t => 
                     t.scheduledDate === dateStr && !t.scheduledTime
                 );
                 
-                gridHTML += `<div class="all-day-section" data-date="${dateStr}" data-all-day="true">`;
-                allDayTasks.forEach(task => {
-                    gridHTML += `
-                        <div class="scheduled-task ${getColumnClass(task)} ${task.completed ? 'completed' : ''}" 
-                             draggable="true" 
-                             data-task-id="${task.id}"
-                             onclick="toggleTask(${task.id})"
-                             style="margin-bottom: 8px; padding: 10px;">
-                            <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
-                        </div>
-                    `;
-                });
-                gridHTML += '</div>';
+                calendarHTML += `<div class="all-day-section" data-date="${dateStr}" data-all-day="true">`;
+                if (allDayTasks.length === 0) {
+                    calendarHTML += `<div style="color: #9ca3af; font-size: 13px; text-align: center; padding: 20px;">Drop tasks here</div>`;
+                } else {
+                    allDayTasks.forEach(task => {
+                        calendarHTML += `
+                            <div class="scheduled-task ${getColumnClass(task)} ${task.completed ? 'completed' : ''}" 
+                                 draggable="true" 
+                                 data-task-id="${task.id}"
+                                 onclick="toggleTask(${task.id})"
+                                 style="margin-bottom: 6px; padding: 12px; cursor: pointer;">
+                                <div style="font-size: 14px; font-weight: 500;">${escapeHtml(task.title)}</div>
+                            </div>
+                        `;
+                    });
+                }
+                calendarHTML += '</div>';
             }
-
+            
             // Time slots
             timeSlots.forEach((timeSlot) => {
-                gridHTML += `<div class="time-label">${timeSlot}</div>`;
+                calendarHTML += `<div class="time-label">${timeSlot}</div>`;
                 
-                for (let i = 0; i < dayCount; i++) {
+                // Add exactly 3 time slots per row
+                for (let i = 0; i < 3; i++) {
                     const date = new Date(currentWeekStart);
                     date.setDate(date.getDate() + i);
                     const dateStr = date.toISOString().split('T')[0];
                     const timeStr = convertTimeSlotTo24Hour(timeSlot);
                     
-                    // Find tasks that START in this slot
                     const slotTasks = tasks.filter(t => 
                         t.scheduledDate === dateStr && 
                         t.scheduledTime && 
                         t.scheduledTime.startsWith(timeStr.substring(0, 2))
                     );
 
-                    gridHTML += `<div class="time-slot" data-date="${dateStr}" data-time="${timeStr}">`;
+                    calendarHTML += `<div class="time-slot" data-date="${dateStr}" data-time="${timeStr}">`;
                     
-                    // Render tasks that START here
                     slotTasks.forEach(task => {
                         const duration = task.duration || 45;
-                        const heightPixels = (duration / 60) * 60; // 60px per hour
-                        gridHTML += `
+                        const heightPixels = (duration / 60) * 80;
+                        calendarHTML += `
                             <div class="scheduled-task ${getColumnClass(task)} ${task.completed ? 'completed' : ''}" 
                                  draggable="true" 
                                  data-task-id="${task.id}"
                                  onclick="toggleTask(${task.id})"
-                                 style="height: ${heightPixels}px; position: absolute; left: 4px; right: 4px; top: 4px; z-index: 10;">
-                                <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
-                                <div class="scheduled-task-time">${task.scheduledTime} (${duration}min)</div>
+                                 style="height: ${heightPixels}px; position: absolute; left: 8px; right: 8px; top: 8px; z-index: 10; cursor: pointer;">
+                                <div style="font-size: 14px; font-weight: 500;">${escapeHtml(task.title)}</div>
+                                <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">${task.scheduledTime} (${duration}min)</div>
                             </div>
                         `;
                     });
                     
-                    gridHTML += '</div>';
+                    calendarHTML += '</div>';
                 }
             });
-
-            calendarGrid.innerHTML = gridHTML;
+            
+            calendarGrid.innerHTML = calendarHTML;
 
             // Add event listeners to all scheduled tasks
             document.querySelectorAll('.scheduled-task').forEach(taskEl => {
