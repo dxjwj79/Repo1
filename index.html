@@ -1189,14 +1189,21 @@
                 t.classList.remove('drag-over-reorder');
             });
             
-            if (!dragOverTaskId || draggedTaskId === dragOverTaskId) return false;
+            if (!dragOverTaskId || draggedTaskId === dragOverTaskId) {
+                alert('DEBUG: Same task or no target');
+                return false;
+            }
             
             // Get all unscheduled tasks
             const unscheduledTasks = tasks.filter(t => !t.scheduledDate);
             
+            alert(`DEBUG: Found ${unscheduledTasks.length} unscheduled tasks. Dragged ID: ${draggedTaskId}, Target ID: ${dragOverTaskId}`);
+            
             // Find positions in the unscheduled list
             const draggedTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === draggedTaskId);
             const targetTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === dragOverTaskId);
+            
+            alert(`DEBUG: Dragged position: ${draggedTaskInUnscheduled}, Target position: ${targetTaskInUnscheduled}`);
             
             if (draggedTaskInUnscheduled !== -1 && targetTaskInUnscheduled !== -1) {
                 // Remove the dragged task from unscheduled array
@@ -1212,7 +1219,11 @@
                 const scheduledTasks = tasks.filter(t => t.scheduledDate);
                 tasks = [...unscheduledTasks, ...scheduledTasks];
                 
+                alert('DEBUG: About to save tasks');
                 saveTasks();
+                alert('DEBUG: Tasks saved!');
+            } else {
+                alert('DEBUG: Could not find tasks in unscheduled list');
             }
             
             dragOverTaskId = null;
@@ -1366,14 +1377,19 @@
                 return;
             }
             
+            alert('DEBUG: Touch end called!');
+            
             e.preventDefault();
             
             const touch = e.changedTouches[0];
             const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
             
+            alert(`DEBUG: Element below: ${elementBelow ? elementBelow.className : 'null'}`);
+            
             if (elementBelow) {
                 // Check if dropping on unscheduled section
                 const unscheduledSection = elementBelow.closest('.unscheduled-section');
+                alert(`DEBUG: Unscheduled section: ${unscheduledSection ? 'found' : 'not found'}`);
                 if (unscheduledSection) {
                     const task = tasks.find(t => t.id === draggedTaskId);
                     if (task) {
@@ -1384,19 +1400,28 @@
                 } else {
                     // Check if dropping on another task for reordering
                     const targetTask = elementBelow.closest('.scheduled-task');
+                    alert(`DEBUG: Target task: ${targetTask ? 'found' : 'not found'}, Same as touched: ${targetTask === touchedElement}`);
                     if (targetTask && targetTask !== touchedElement) {
                         const targetId = parseInt(targetTask.getAttribute('data-task-id'));
                         const isTargetUnscheduled = targetTask.hasAttribute('data-is-unscheduled');
                         const draggedTask = tasks.find(t => t.id === draggedTaskId);
                         
+                        alert(`DEBUG: Target unscheduled: ${isTargetUnscheduled}, Dragged task found: ${!!draggedTask}, Dragged scheduled: ${draggedTask ? draggedTask.scheduledDate : 'N/A'}`);
+                        
                         // If both are unscheduled, reorder
                         if (isTargetUnscheduled && draggedTask && !draggedTask.scheduledDate) {
+                            alert(`DEBUG TOUCH: Attempting reorder. Dragged: ${draggedTaskId}, Target: ${targetId}`);
+                            
                             // Get all unscheduled tasks
                             const unscheduledTasks = tasks.filter(t => !t.scheduledDate);
+                            
+                            alert(`DEBUG TOUCH: Found ${unscheduledTasks.length} unscheduled tasks`);
                             
                             // Find positions in the unscheduled list
                             const draggedTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === draggedTaskId);
                             const targetTaskInUnscheduled = unscheduledTasks.findIndex(t => t.id === targetId);
+                            
+                            alert(`DEBUG TOUCH: Positions - Dragged: ${draggedTaskInUnscheduled}, Target: ${targetTaskInUnscheduled}`);
                             
                             if (draggedTaskInUnscheduled !== -1 && targetTaskInUnscheduled !== -1) {
                                 // Remove the dragged task from unscheduled array
@@ -1412,7 +1437,11 @@
                                 const scheduledTasks = tasks.filter(t => t.scheduledDate);
                                 tasks = [...unscheduledTasks, ...scheduledTasks];
                                 
+                                alert('DEBUG TOUCH: About to save');
                                 saveTasks();
+                                alert('DEBUG TOUCH: Saved!');
+                            } else {
+                                alert('DEBUG TOUCH: Could not find tasks');
                             }
                         }
                     } else {
