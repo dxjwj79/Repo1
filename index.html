@@ -521,27 +521,32 @@
         }
 
         /* Color coding based on list column */
-        .scheduled-task.column-tasks {
+        .scheduled-task.column-tasks,
+        .task.column-tasks {
             border-left-color: #667eea;
             background: #eef2ff;
         }
 
-        .scheduled-task.column-tonight {
+        .scheduled-task.column-tonight,
+        .task.column-tonight {
             border-left-color: #f59e0b;
             background: #fff7ed;
         }
 
-        .scheduled-task.column-tomorrow {
+        .scheduled-task.column-tomorrow,
+        .task.column-tomorrow {
             border-left-color: #3b82f6;
             background: #eff6ff;
         }
 
-        .scheduled-task.column-urgent {
+        .scheduled-task.column-urgent,
+        .task.column-urgent {
             border-left-color: #ef4444;
             background: #fef2f2;
         }
 
-        .scheduled-task.column-projects {
+        .scheduled-task.column-projects,
+        .task.column-projects {
             border-left-color: #8b5cf6;
             background: #f5f3ff;
         }
@@ -767,23 +772,6 @@
             <div class="input-group">
                 <input type="text" id="taskTitle" placeholder="Task title *" />
             </div>
-            <div class="input-group">
-                <textarea id="taskDescription" placeholder="Description (optional)"></textarea>
-            </div>
-            <div class="row">
-                <select id="taskCategory">
-                    <option value="Personal">Personal</option>
-                    <option value="Work">Work</option>
-                    <option value="Shopping">Shopping</option>
-                    <option value="Health">Health</option>
-                    <option value="Other">Other</option>
-                </select>
-                <select id="taskPriority">
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                </select>
-            </div>
             <div class="row">
                 <input type="date" id="taskDate" />
                 <input type="time" id="taskTime" />
@@ -866,23 +854,6 @@
             <div class="input-group">
                 <input type="text" id="editTaskTitle" placeholder="Task title *" />
             </div>
-            <div class="input-group">
-                <textarea id="editTaskDescription" placeholder="Description (optional)"></textarea>
-            </div>
-            <div class="row">
-                <select id="editTaskCategory">
-                    <option value="Personal">Personal</option>
-                    <option value="Work">Work</option>
-                    <option value="Shopping">Shopping</option>
-                    <option value="Health">Health</option>
-                    <option value="Other">Other</option>
-                </select>
-                <select id="editTaskPriority">
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                </select>
-            </div>
             <div class="row">
                 <input type="date" id="editTaskDate" />
                 <input type="time" id="editTaskTime" />
@@ -937,9 +908,6 @@
 
         function addTask() {
             const title = document.getElementById('taskTitle').value.trim();
-            const description = document.getElementById('taskDescription').value.trim();
-            const category = document.getElementById('taskCategory').value;
-            const priority = document.getElementById('taskPriority').value;
             const date = document.getElementById('taskDate').value;
             const time = document.getElementById('taskTime').value;
             const duration = parseInt(document.getElementById('taskDuration').value);
@@ -952,9 +920,9 @@
             const task = {
                 id: Date.now(),
                 title,
-                description,
-                category,
-                priority,
+                description: '',
+                category: 'Other',
+                priority: 'medium',
                 completed: false,
                 scheduledDate: date || null,
                 scheduledTime: time || null,
@@ -967,9 +935,6 @@
 
             // Clear inputs
             document.getElementById('taskTitle').value = '';
-            document.getElementById('taskDescription').value = '';
-            document.getElementById('taskCategory').selectedIndex = 0;
-            document.getElementById('taskPriority').selectedIndex = 0;
             document.getElementById('taskDate').value = '';
             document.getElementById('taskTime').value = '';
         }
@@ -995,9 +960,6 @@
 
             editingTaskId = id;
             document.getElementById('editTaskTitle').value = task.title;
-            document.getElementById('editTaskDescription').value = task.description || '';
-            document.getElementById('editTaskCategory').value = task.category;
-            document.getElementById('editTaskPriority').value = task.priority;
             document.getElementById('editTaskDate').value = task.scheduledDate || '';
             document.getElementById('editTaskTime').value = task.scheduledTime || '';
             document.getElementById('editTaskDuration').value = task.duration || 45;
@@ -1021,9 +983,6 @@
             }
 
             task.title = title;
-            task.description = document.getElementById('editTaskDescription').value.trim();
-            task.category = document.getElementById('editTaskCategory').value;
-            task.priority = document.getElementById('editTaskPriority').value;
             task.scheduledDate = document.getElementById('editTaskDate').value || null;
             task.scheduledTime = document.getElementById('editTaskTime').value || null;
             task.duration = parseInt(document.getElementById('editTaskDuration').value) || 45;
@@ -1091,19 +1050,20 @@
             const urgentTasks = filteredTasks.filter(t => t.listColumn === 'urgent');
             const projectsTasks = filteredTasks.filter(t => t.listColumn === 'projects');
 
+            // Helper function to get column class
+            const getColumnClass = (task) => {
+                if (!task.listColumn || task.listColumn === 'tasks') return 'column-tasks';
+                return `column-${task.listColumn}`;
+            };
+
             // Helper function to render tasks
             const renderTaskHTML = (task) => `
-                <div class="task ${task.completed ? 'completed' : ''} priority-${task.priority}" draggable="true" data-task-id="${task.id}" data-is-list-task="true">
+                <div class="task ${getColumnClass(task)} ${task.completed ? 'completed' : ''} priority-${task.priority}" draggable="true" data-task-id="${task.id}" data-is-list-task="true">
                     <div class="task-header">
                         <input type="checkbox" class="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask(${task.id})">
                         <div class="task-content">
                             <div class="task-title">${escapeHtml(task.title)}</div>
-                            ${task.description ? `<div class="task-description">${escapeHtml(task.description)}</div>` : ''}
-                            <div class="task-meta">
-                                <span class="tag category">${task.category}</span>
-                                <span class="tag priority priority-${task.priority}">${task.priority.toUpperCase()}</span>
-                                ${task.scheduledDate ? `<span class="tag time">${formatDate(task.scheduledDate)} ${task.scheduledTime || ''}</span>` : ''}
-                            </div>
+                            ${task.scheduledDate ? `<div class="task-meta"><span class="tag time">${formatDate(task.scheduledDate)} ${task.scheduledTime || ''}</span></div>` : ''}
                             <div class="task-buttons">
                                 <button class="edit-btn" onclick="openEditModal(${task.id})">Edit</button>
                                 <button class="delete-btn" onclick="deleteTask(${task.id})">Delete</button>
@@ -1359,22 +1319,6 @@
                         saveTasks();
                     }
                 });
-            });
-        }
-            });
-
-            // Make unscheduled section a drop zone
-            const unscheduledSection = document.querySelector('.unscheduled-tasks');
-            if (unscheduledSection) {
-                unscheduledSection.addEventListener('dragover', handleUnscheduledDragOver);
-                unscheduledSection.addEventListener('drop', handleUnscheduledDrop);
-                unscheduledSection.addEventListener('dragleave', handleUnscheduledDragLeave);
-            }
-
-            document.querySelectorAll('.time-slot').forEach(slot => {
-                slot.addEventListener('dragover', handleDragOver);
-                slot.addEventListener('drop', handleDrop);
-                slot.addEventListener('dragleave', handleDragLeave);
             });
         }
 
