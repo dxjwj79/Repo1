@@ -486,6 +486,15 @@
             color: #6b7280;
         }
 
+        .scheduled-task-continuation {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 4px;
+            margin-bottom: 4px;
+            border-left: 3px solid #667eea;
+            font-size: 11px;
+        }
+
         .unscheduled-section {
             background: #f9fafb;
             border-radius: 8px;
@@ -1038,7 +1047,7 @@
                 </div>`;
             }
 
-            timeSlots.forEach(timeSlot => {
+            timeSlots.forEach((timeSlot, slotIndex) => {
                 gridHTML += `<div class="time-label">${timeSlot}</div>`;
                 
                 for (let i = 0; i < 7; i++) {
@@ -1046,26 +1055,51 @@
                     date.setDate(date.getDate() + i);
                     const dateStr = date.toISOString().split('T')[0];
                     const timeStr = convertTimeSlotTo24Hour(timeSlot);
+                    const slotHour = parseInt(timeStr.split(':')[0]);
                     
+                    // Find tasks that START in this slot
                     const slotTasks = tasks.filter(t => 
                         t.scheduledDate === dateStr && 
                         t.scheduledTime && 
                         t.scheduledTime.startsWith(timeStr.substring(0, 2))
                     );
 
+                    // Find tasks that SPAN into this slot from earlier
+                    const spanningTasks = tasks.filter(t => {
+                        if (!t.scheduledDate || !t.scheduledTime || t.scheduledDate !== dateStr) return false;
+                        
+                        const taskHour = parseInt(t.scheduledTime.split(':')[0]);
+                        const taskDuration = t.duration || 45;
+                        const taskEndHour = taskHour + (taskDuration / 60);
+                        
+                        // Check if this task started earlier but extends into this slot
+                        return taskHour < slotHour && taskEndHour > slotHour;
+                    });
+
                     gridHTML += `<div class="time-slot" data-date="${dateStr}" data-time="${timeStr}">`;
                     
+                    // Render tasks that START here
                     slotTasks.forEach(task => {
                         const duration = task.duration || 45;
-                        const heightPercentage = (duration / 60) * 100; // 60 min slot = 100% height
+                        const heightPixels = (duration / 60) * 60; // 60px per hour
                         gridHTML += `
                             <div class="scheduled-task ${task.completed ? 'completed' : ''} priority-${task.priority}" 
                                  draggable="true" 
                                  data-task-id="${task.id}"
                                  onclick="toggleTask(${task.id})"
-                                 style="height: ${heightPercentage}%; min-height: ${heightPercentage}%;">
+                                 style="height: ${heightPixels}px; min-height: ${heightPixels}px; position: relative; z-index: 10;">
                                 <div class="scheduled-task-title">${escapeHtml(task.title)}</div>
                                 <div class="scheduled-task-time">${task.scheduledTime} (${duration}min)</div>
+                            </div>
+                        `;
+                    });
+                    
+                    // Show a placeholder/continuation for spanning tasks
+                    spanningTasks.forEach(task => {
+                        gridHTML += `
+                            <div class="scheduled-task-continuation ${task.completed ? 'completed' : ''} priority-${task.priority}" 
+                                 style="height: 60px; opacity: 0.5; border-top: 2px dashed #999;">
+                                <div style="font-size: 11px; color: #6b7280;">↑ ${escapeHtml(task.title)} (cont.)</div>
                             </div>
                         `;
                     });
