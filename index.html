@@ -1382,34 +1382,30 @@
             e.preventDefault();
             
             const touch = e.changedTouches[0];
-            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            let elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
             
             alert(`DEBUG: Element below: ${elementBelow ? elementBelow.className : 'null'}`);
             
+            // If we hit a child element, find the parent scheduled-task
+            if (elementBelow && !elementBelow.classList.contains('scheduled-task')) {
+                const parentTask = elementBelow.closest('.scheduled-task');
+                if (parentTask) {
+                    elementBelow = parentTask;
+                    alert('DEBUG: Found parent scheduled-task');
+                }
+            }
+            
             if (elementBelow) {
-                // Check if dropping on unscheduled section
-                const unscheduledSection = elementBelow.closest('.unscheduled-section');
-                alert(`DEBUG: Unscheduled section: ${unscheduledSection ? 'found' : 'not found'}`);
-                if (unscheduledSection) {
-                    const task = tasks.find(t => t.id === draggedTaskId);
-                    if (task) {
-                        task.scheduledDate = null;
-                        task.scheduledTime = null;
-                        saveTasks();
-                    }
-                } else {
-                    // Check if dropping on another task for reordering
-                    const targetTask = elementBelow.closest('.scheduled-task');
-                    alert(`DEBUG: Target task: ${targetTask ? 'found' : 'not found'}, Same as touched: ${targetTask === touchedElement}`);
-                    if (targetTask && targetTask !== touchedElement) {
-                        const targetId = parseInt(targetTask.getAttribute('data-task-id'));
-                        const isTargetUnscheduled = targetTask.hasAttribute('data-is-unscheduled');
-                        const draggedTask = tasks.find(t => t.id === draggedTaskId);
-                        
-                        alert(`DEBUG: Target unscheduled: ${isTargetUnscheduled}, Dragged task found: ${!!draggedTask}, Dragged scheduled: ${draggedTask ? draggedTask.scheduledDate : 'N/A'}`);
-                        
-                        // If both are unscheduled, reorder
-                        if (isTargetUnscheduled && draggedTask && !draggedTask.scheduledDate) {
+                // Check if this is a scheduled task (for reordering unscheduled)
+                if (elementBelow.classList.contains('scheduled-task')) {
+                    const isTargetUnscheduled = elementBelow.hasAttribute('data-is-unscheduled');
+                    const targetId = parseInt(elementBelow.getAttribute('data-task-id'));
+                    const draggedTask = tasks.find(t => t.id === draggedTaskId);
+                    
+                    alert(`DEBUG: Is task. Target unscheduled: ${isTargetUnscheduled}, Dragged unscheduled: ${draggedTask && !draggedTask.scheduledDate}`);
+                    
+                    // If both are unscheduled and not the same task, reorder
+                    if (isTargetUnscheduled && draggedTask && !draggedTask.scheduledDate && elementBelow !== touchedElement) {
                             alert(`DEBUG TOUCH: Attempting reorder. Dragged: ${draggedTaskId}, Target: ${targetId}`);
                             
                             // Get all unscheduled tasks
@@ -1443,20 +1439,30 @@
                             } else {
                                 alert('DEBUG TOUCH: Could not find tasks');
                             }
+                    }
+                } else {
+                    // Not a scheduled task - check for other drop targets
+                    const unscheduledSection = elementBelow.closest('.unscheduled-section');
+                    const timeSlot = elementBelow.closest('.time-slot');
+                    
+                    if (unscheduledSection) {
+                        alert('DEBUG: Dropping on unscheduled section to unschedule');
+                        const task = tasks.find(t => t.id === draggedTaskId);
+                        if (task && task.scheduledDate) {
+                            task.scheduledDate = null;
+                            task.scheduledTime = null;
+                            saveTasks();
                         }
-                    } else {
-                        // Check if dropping on time slot
-                        const timeSlot = elementBelow.closest('.time-slot');
-                        if (timeSlot) {
-                            const date = timeSlot.getAttribute('data-date');
-                            const time = timeSlot.getAttribute('data-time');
-                            
-                            const task = tasks.find(t => t.id === draggedTaskId);
-                            if (task) {
-                                task.scheduledDate = date;
-                                task.scheduledTime = time;
-                                saveTasks();
-                            }
+                    } else if (timeSlot) {
+                        alert('DEBUG: Dropping on time slot');
+                        const date = timeSlot.getAttribute('data-date');
+                        const time = timeSlot.getAttribute('data-time');
+                        
+                        const task = tasks.find(t => t.id === draggedTaskId);
+                        if (task) {
+                            task.scheduledDate = date;
+                            task.scheduledTime = time;
+                            saveTasks();
                         }
                     }
                 }
